@@ -1,42 +1,136 @@
 import boto3
 from datetime import datetime
-from aws_models import AWSConnection
-from config import config_data
+import pandas as pd
 import json
 from json import JSONDecodeError
+from collections import Counter
 
-# #### Initializa the S3 resource ####
+from database import db
+from models import EventRegistration, EventUpdate, Register, Deregister
+from aws_models import AWSConnection
+from config import config_data
 
-# session = boto3.Session(aws_access_key_id=config_data['AWS_ACCESS_KEY'],
-#                         aws_secret_access_key=config_data['AWS_ACCESS_SECRET'])
+
+#######################################################
+############# Initializa the S3 resource ##############
+#######################################################
+
+s3_bucket = AWSConnection(bucket=config_data['BUCKET_NAME_TO'],
+                          access_key=config_data['AWS_ACCESS_KEY'],
+                          access_secret=config_data['AWS_ACCESS_SECRET'],
+                          resource='s3')
+
+#######################################################
+##### Get all the folders in the S3 Loka Data lake ####
+#######################################################
+
+folders = s3_bucket.list_folders_s3_bucket()
+
+#######################################################
+### Get all the files name in the S3 Loka Data lake ###
+#######################################################
+
+filesname = dict()
+for folder in folders:
+    files = s3_bucket.list_sorted_object_s3_bucket(prefix= folder)
+    filesname['folder'] = folder
+    filesname['filesnames'] = files
 
 
-# s3 = session.resource('s3')
+#######################################################
+##### Get all the files in the S3 Loka Data lake ######
+#######################################################
+stg_events = list()
 
-# my_bucket = s3.Bucket('de-tech-assessment-2022')
+for filename in filesname['filesnames']:
+    file_content_json = s3_bucket.get_file_s3_bucket(
+        filename=f'{filesname["folder"]}/{filename}')
+    for event in file_content_json:
+        stg_row = dict()
+        if event['event'] == 'register':
+            stg_row['event'] = event['event']
+            stg_row['on'] = event['on']
+            stg_row['id'] = event['data']['id']
+            stg_row['register_at'] = event['at']
+            stg_events.append(stg_row)
+        
+        if event['event'] == 'deregister':
+            stg_row['event'] = event['event']
+            stg_row['on'] = event['on']
+            stg_row['id'] = event['data']['id']
+            stg_row['deregister_at'] = event['at']
+            stg_events.append(stg_row)
 
-# # for my_bucket_object in my_bucket.objects.filter(Prefix='data/'):
-# #     print(my_bucket_object.key)
+        if event['event'] == 'update':
+            stg_row['event'] = event['event']
+            stg_row['on'] = event['on']
+            stg_row['id'] = event['data']['id']
+            stg_row['lat'] = event['data']['location']['lat']
+            stg_row['lng'] = event['data']['location']['lng']
+            stg_row['at'] = event['data']['location']['at']
+            stg_row['organization_id'] = event['organization_id']
+            stg_events.append(stg_row)
 
-# event_dict = dict()
-# mapping = dict()
-# files_in_s3 = [f.key.split('data' + "/")[1] for f in my_bucket.objects.filter(Prefix='data/').all()]
 
-# def sort(datestr):
-#     date = datestr[:-12]
-#     date_a = datetime.strptime(date, '%Y-%m-%d-%H-%M-%S')
-#     return date_a
+register_list = []
+deregister_list = []
+event_registration = []
+event_updates = []
+locations = []
 
-# for file in files_in_s3:
-#     print(file)
+for element in stg_events:
+    if element['event'] == 'register':
+        instance_register = Register(element['id'], element['register_at'])
+        register_list.append(instance_register)
 
-s3_bucket = AWSConnection(bucket=config_data['BUCKET_NAME'], 
-                      access_key=config_data['AWS_ACCESS_KEY'],
-                      access_secret=config_data['AWS_ACCESS_SECRET'], 
-                      resource='s3')
+    if element['event'] == 'deregister':
+        instance_deregister = Deregister(element['id'], element['deregister_at'])
+        deregister_list.append(instance_deregister)
 
-# files = s3_bucket.list_object_s3_bucket()
-# for file in files:
-#     print(file)
+    if element['event'] == 'update':
+        instance_registration = EventRegistration(
+            event = element['event'],
+            on = element['on'],
+            id = element['id'],
+            register_at= None,
+            deregister_at= None,
+            organization_id= element['organization_id'])
+        
+        event_registration.append(instance_registration)
 
-a = s3_bucket.get_file_s3_bucket(filename='data/2019-06-01-15-17-4-events.json')
+        instance_update = EventUpdate(
+            element['id'],
+            element['lat'],
+            element['lng'],
+            element['at']
+        )
+
+        event_updates.append(instance_update)
+
+for eventRegistration in event_registration:
+    for register in register_list:
+        if eventRegistration.id == register.id:
+            eventRegistration.register_at = register.register_at
+    for deregister in deregister_list:
+        if eventRegistration.id == deregister.id:
+            eventRegistration.deregister_at = deregister.deregister_at
+
+#### REMOVING DUPLICATES ON event_registration list (I need to review why I produce duplicates on the previous Loop) ####
+registration_seen_id = set()
+unique_events_registration = []
+for obj in event_registration:
+    if obj.id not in registration_seen_id:
+        unique_events_registration.append(obj)
+        registration_seen_id.add(obj.id) 
+
+for event in event_registration:
+    db.add(event)
+    db.flush()
+    db.commit()
+db.close()
+
+for update in event_updates:
+    db.add(update)
+    db.flush()
+    db.commit()
+db.close()

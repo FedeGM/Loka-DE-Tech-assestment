@@ -1,2 +1,2 @@
 boto3==1.26.84
-pandas==1.5.3
+sqlalchemy==1.4.46
