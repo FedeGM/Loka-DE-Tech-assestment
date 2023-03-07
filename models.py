@@ -51,8 +51,8 @@ class EventUpdate(Base):
 
     def __init__(self, id: str, lat: float, lng: float, at: str) -> None:
         self.id = id
-        self.lat = lat
-        self.lng = lng
+        self.latitud = lat
+        self.longitud = lng
         self.at = datetime.strptime(at, '%Y-%m-%dT%H:%M:%S.%f%z') if at else None
 
     def to_json(self):

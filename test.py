@@ -1,9 +1,4 @@
-import boto3
 from datetime import datetime
-import pandas as pd
-import json
-from json import JSONDecodeError
-from collections import Counter
 
 from database import db
 from models import EventRegistration, EventUpdate, Register, Deregister
@@ -71,7 +66,6 @@ for filename in filesname['filesnames']:
             stg_row['organization_id'] = event['organization_id']
             stg_events.append(stg_row)
 
-
 register_list = []
 deregister_list = []
 event_registration = []
@@ -121,16 +115,16 @@ unique_events_registration = []
 for obj in event_registration:
     if obj.id not in registration_seen_id:
         unique_events_registration.append(obj)
-        registration_seen_id.add(obj.id) 
+        registration_seen_id.add(obj.id)
 
-for event in event_registration:
-    db.add(event)
-    db.flush()
-    db.commit()
+##### Bulk update of all the registration objects #####
+db.bulk_save_objects(unique_events_registration)
+db.commit()
+db.flush()
 db.close()
 
-for update in event_updates:
-    db.add(update)
-    db.flush()
-    db.commit()
+##### Bulk update of all the updates objects #####
+db.bulk_save_objects(event_updates)
+db.commit()
+db.flush()
 db.close()

@@ -4,6 +4,7 @@ from datetime import datetime
 import json
 import ast
 import logging
+from config import logger
 
 
 class AWSConnection:
@@ -46,15 +47,15 @@ class AWSConnection:
 
         status = response.get()['ResponseMetadata']['HTTPStatusCode']
         if status == 200:
-            print(f"Successful S3 get_object response. Status - {status}")
+            logger(f"Successful S3 get_object response. Status - {status}")
             file_content = response.get()['Body'].read().decode('utf-8')
             json_content = [json.loads(line) for line in file_content.splitlines()]
             return json_content
         else:
-            print(f"Unsuccessful S3 get_object response. Status - {status}")
+            logger(f"Unsuccessful S3 get_object response. Status - {status}")
 
     def move_files_to_a_s3(self, s3_bucket_from, source_filename, s3_bucket_to, target_filename):
         bucket = self.aws_resource.Bucket(s3_bucket_to)
         bucket.copy({'Bucket': s3_bucket_from, 'Key': source_filename}, target_filename)
-        print(f'file {source_filename} copied')
+        logger(f'file {source_filename} copied')
     

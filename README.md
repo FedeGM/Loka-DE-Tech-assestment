@@ -4,7 +4,15 @@
 ### Description
 
 This repository contain a solution of the Data Engineer Tech Assestment of Loka company.
+For this exercise, I didn't create the Lambda functions to avoid being charge for the CPU utilization.
+#### Sequence Diagram
+This is how I designe this solution. As I mentioned above, I didn't create the Lambda functions to avoid possible billings on AWS, but the approach would be like the following Sequence Diagram.
 
+![https://app.diagrams.net/#HFedeGM%2FLoka-DE-Tech-assestment%2Fmain%2FSequence-Diagram.drawio.png](Sequence-Diagram.drawio.png)
+
+### Database Diagram
+
+![https://app.diagrams.net/#HFedeGM%2FLoka-DE-Tech-assestment%2Fmain%2FDB_Diagram.drawio.png](DB_Diagram.drawio.png)
 
 ## Install
 
